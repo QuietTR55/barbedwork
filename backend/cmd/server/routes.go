@@ -2,25 +2,30 @@ package main
 
 import (
 	"backend/internal/di"
-
-	"github.com/gin-gonic/gin"
+	"backend/pkg/middleware"
+	"net/http"
 )
 
-func SetupRoutes(router gin.IRouter, container *di.Container) {
-	router.Use(func(c *gin.Context) {
-		defer func() {
-			if err := recover(); err != nil {
-				// Log the error without exposing stack traces
-				c.Error(err.(error))
-				c.AbortWithStatusJSON(500, gin.H{"error": "Internal Server Error"})
-			}
-		}()
-		c.Next()
-	})
-	router.Use(gin.Logger())
+func SetupRoutes(mux *http.ServeMux, container *di.Container) {
+	// Health Check Route
+	mux.Handle("/api/health", middleware.RateLimitMiddleware(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"status": "ok"}`))
+		}),
+		container.RedisClient, 5, 1,
+	))
 
-	adminDashboard := router.Group("/admin")
-	{
-		adminDashboard.GET("/dashboard", container.AdminDashboardHandler.GetDashboardData)
-	}
+	// Admin Authentication Routes
+	mux.Handle("/api/auth/admin/login", middleware.RateLimitMiddleware(
+		http.HandlerFunc(container.AdminAuthHandler.Login),
+		container.RedisClient, 3, 1,
+	))
+
+	// Admin Dashboard Routes
+	mux.Handle("/admin/dashboard", middleware.TokenAuthMiddleware(
+		http.HandlerFunc(container.AdminDashboardHandler.GetDashboardData),
+		container.RedisClient,
+	))
 }

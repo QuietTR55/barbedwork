@@ -15,6 +15,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - ADMIN_PANEL_PASSWORD=${ADMIN_PANEL_PASSWORD:?Please provide an admin panel password}
+      - DEV=${DEV:-false}
     depends_on:
       - postgres
       - redis
