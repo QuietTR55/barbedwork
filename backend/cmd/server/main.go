@@ -17,16 +17,6 @@ func main() {
 	// Create a new ServeMux for routing
 	mux := http.NewServeMux()
 
-	// Enable CORS if DEV environment variable is set
-	devMode := os.Getenv("DEV") != ""
-	if devMode {
-		fmt.Println("DEV mode enabled: Allowing specific origins with CORS")
-		mux.Handle("/", corsMiddleware(http.HandlerFunc(homeHandler)))
-	} else {
-		fmt.Println("Production mode enabled: CORS is disabled")
-		mux.Handle("/", http.HandlerFunc(homeHandler))
-	}
-
 	// Connect to the database
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -45,18 +35,19 @@ func main() {
 	// Setup routes
 	SetupRoutes(mux, container)
 
-	// Apply CORS middleware globally
-	wrappedMux := corsMiddleware(mux)
+	// Conditionally apply CORS middleware
+	devMode := os.Getenv("DEV") != ""
+	var wrappedMux http.Handler
+	if devMode {
+		fmt.Println("Applying CORS middleware")
+		wrappedMux = corsMiddleware(mux)
+	} else {
+		wrappedMux = mux
+	}
 
 	// Start the server
 	fmt.Printf("Server is running on port %s\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, wrappedMux))
-}
-
-// Example home handler
-func homeHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Welcome to the server!"))
 }
 
 // CORS middleware

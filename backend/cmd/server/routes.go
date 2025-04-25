@@ -28,4 +28,20 @@ func SetupRoutes(mux *http.ServeMux, container *di.Container) {
 		http.HandlerFunc(container.AdminDashboardHandler.GetDashboardData),
 		container.RedisClient,
 	))
+
+	mux.Handle("/admin/create-user", middleware.RateLimitMiddleware(
+		middleware.TokenAuthMiddleware(
+			http.HandlerFunc(container.AdminDashboardHandler.CreateNewUser),
+			container.RedisClient,
+		),
+		container.RedisClient, 20, 1,
+	))
+
+	mux.Handle("/admin/users", middleware.RateLimitMiddleware(
+		middleware.TokenAuthMiddleware(
+			http.HandlerFunc(container.AdminDashboardHandler.GetAllUsers),
+			container.RedisClient,
+		),
+		container.RedisClient, 20, 1,
+	))
 }

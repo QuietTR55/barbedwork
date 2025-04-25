@@ -48,7 +48,7 @@ func (h *AdminAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// --- Password is correct, generate tokens for the admin user ---
-	userId := "admin" // Use the predefined admin user ID
+	userId := AdminUserID // Use the predefined admin user ID
 
 	accessToken, err := utilities.GenerateAccessToken(r.Context(), h.redisClient, userId)
 	if err != nil {

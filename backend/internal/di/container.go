@@ -2,6 +2,8 @@ package di
 
 import (
 	"backend/internal/handlers"
+	"backend/internal/repos"
+	"backend/internal/services"
 	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -13,6 +15,8 @@ type Container struct {
 	AdminPanelPasswordHash []byte
 	AdminDashboardHandler  *handlers.AdminDashboardHandler
 	AdminAuthHandler       *handlers.AdminAuthHandler
+	UserService            *services.UserService
+	UserRepo               *repos.UserRepo
 	DB                     *pgxpool.Pool
 	RedisClient            *redis.Client
 }
@@ -44,11 +48,16 @@ func NewContainer(db *pgxpool.Pool) *Container {
 		DB:       0,
 	})
 
+	userRepo := repos.NewUserRepo(db)
+	userService := services.NewUserService(userRepo)
+
 	return &Container{
 		AdminPanelPasswordHash: adminPanelPasswordHash,
 		DB:                     db,
-		AdminDashboardHandler:  handlers.NewAdminDashboardHandler(redisClient, adminPanelPasswordHash),
+		AdminDashboardHandler:  handlers.NewAdminDashboardHandler(redisClient, adminPanelPasswordHash, userService),
 		AdminAuthHandler:       handlers.NewAdminAuthHandler(adminPanelPasswordHash, redisClient),
 		RedisClient:            redisClient,
+		UserService:            userService,
+		UserRepo:               userRepo,
 	}
 }
