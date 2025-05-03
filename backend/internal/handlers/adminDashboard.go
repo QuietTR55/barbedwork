@@ -2,24 +2,54 @@ package handlers
 
 import (
 	"backend/internal/services"
+	"backend/pkg/middleware"
+	"backend/pkg/ratelimiter"
 	"backend/pkg/utilities"
 	"encoding/json"
 	"fmt"
 	"net/http" // Import net/http
+	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type AdminDashboardHandler struct {
-	redisClient            *redis.Client
+	SessionStore           utilities.SessionStore
+	Limiter                ratelimiter.RateLimiter
 	adminPanelPasswordHash []byte
 	userService            *services.UserService
 }
 
-func NewAdminDashboardHandler(redisClient *redis.Client, adminPanelPasswordHash []byte, userService *services.UserService) *AdminDashboardHandler {
-	return &AdminDashboardHandler{redisClient: redisClient, adminPanelPasswordHash: adminPanelPasswordHash, userService: userService}
+func NewAdminDashboardHandler(SessionStore utilities.SessionStore, Limiter ratelimiter.RateLimiter, adminPanelPasswordHash []byte, userService *services.UserService) *AdminDashboardHandler {
+	return &AdminDashboardHandler{SessionStore: SessionStore, Limiter: Limiter, adminPanelPasswordHash: adminPanelPasswordHash, userService: userService}
+}
+
+func (h *AdminDashboardHandler) RegisterRoutes(router *http.ServeMux) {
+	router.Handle("/api/admin/dashboard", middleware.RateLimitMiddleware(
+		middleware.TokenAuthMiddleware(
+			http.HandlerFunc(h.GetDashboardData),
+			h.SessionStore,
+		),
+		h.Limiter,
+		time.Minute,
+	))
+	router.Handle("/api/admin/create-user", middleware.RateLimitMiddleware(
+		middleware.TokenAuthMiddleware(
+			http.HandlerFunc(h.CreateNewUser),
+			h.SessionStore,
+		),
+		h.Limiter,
+		time.Minute,
+	))
+	router.Handle("/api/admin/users", middleware.RateLimitMiddleware(
+		middleware.TokenAuthMiddleware(
+			http.HandlerFunc(h.GetAllUsers),
+			h.SessionStore,
+		),
+		h.Limiter,
+		time.Minute,
+	))
 }
 
 const AdminUserID = "admin" // Define a constant for the admin user ID
@@ -78,15 +108,16 @@ func (h *AdminDashboardHandler) CreateNewUser(w http.ResponseWriter, r *http.Req
 	}
 
 	//insert into users table
-	err = h.userService.CreateUser(credentials.Username, string(hashedPassword))
+	user, err := h.userService.CreateUser(r.Context(), credentials.Username, string(hashedPassword))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(gin.H{"error": "Failed to create user"})
+		fmt.Println("Error creating user:", err)
 		return
 	}
 	
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(gin.H{"message": "User created successfully"})
+	json.NewEncoder(w).Encode(gin.H{"message": "User created successfully", "user": user})
 }
 
 func (h *AdminDashboardHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
@@ -102,7 +133,7 @@ func (h *AdminDashboardHandler) GetAllUsers(w http.ResponseWriter, r *http.Reque
 		json.NewEncoder(w).Encode(gin.H{"error": "Access denied"})
 		return
 	}
-	users, err := h.userService.GetAllUsers()
+	users, err := h.userService.GetAllUsers(r.Context())
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(gin.H{"error": "Failed to get users"})

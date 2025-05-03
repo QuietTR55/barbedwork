@@ -4,6 +4,7 @@ import (
 	"backend/internal/di"
 	"backend/pkg/middleware"
 	"net/http"
+	"time"
 )
 
 func SetupRoutes(mux *http.ServeMux, container *di.Container) {
@@ -14,34 +15,11 @@ func SetupRoutes(mux *http.ServeMux, container *di.Container) {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`{"status": "ok"}`))
 		}),
-		container.RedisClient, 5, 1,
+		container.Limiter,
+		time.Minute,
 	))
 
-	// Admin Authentication Routes
-	mux.Handle("/api/auth/admin/login", middleware.RateLimitMiddleware(
-		http.HandlerFunc(container.AdminAuthHandler.Login),
-		container.RedisClient, 3, 1,
-	))
-
-	// Admin Dashboard Routes
-	mux.Handle("/admin/dashboard", middleware.TokenAuthMiddleware(
-		http.HandlerFunc(container.AdminDashboardHandler.GetDashboardData),
-		container.RedisClient,
-	))
-
-	mux.Handle("/admin/create-user", middleware.RateLimitMiddleware(
-		middleware.TokenAuthMiddleware(
-			http.HandlerFunc(container.AdminDashboardHandler.CreateNewUser),
-			container.RedisClient,
-		),
-		container.RedisClient, 20, 1,
-	))
-
-	mux.Handle("/admin/users", middleware.RateLimitMiddleware(
-		middleware.TokenAuthMiddleware(
-			http.HandlerFunc(container.AdminDashboardHandler.GetAllUsers),
-			container.RedisClient,
-		),
-		container.RedisClient, 20, 1,
-	))
+	container.AdminAuthHandler.RegisterRoutes(mux)
+	container.AdminDashboardHandler.RegisterRoutes(mux)
+	container.UserHandler.RegisterRoutes(mux)
 }

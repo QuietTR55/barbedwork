@@ -1,16 +1,12 @@
 package middleware
 
 import (
-	"context"
+	"backend/pkg/ratelimiter"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/redis/go-redis/v9"
 )
-
-var ctx = context.Background()
 
 const luaScript = `
 local current = redis.call("INCR",KEYS[1])
@@ -20,37 +16,27 @@ end
 return current
 `
 
-func RateLimitMiddleware(next http.Handler, rdb *redis.Client, maxRequests int, window time.Duration) http.Handler {
-	sha, err := rdb.ScriptLoad(ctx, luaScript).Result()
-	if err != nil {
-		panic("failed to load lua script: " + err.Error())
-	}
+func RateLimitMiddleware(next http.Handler, limiter ratelimiter.RateLimiter, window time.Duration) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userKey := getUserKey(r) // can be IP or user ID
 		redisKey := fmt.Sprintf("rate_limit:%s", userKey)
 
-		var count int
-		count, err = rdb.EvalSha(ctx, sha, []string{redisKey}, int(window.Seconds())).Int()
+		allowed, err := limiter.Allow(r.Context(), redisKey, window)
 		if err != nil {
-			// fallback to Eval if script isn't cached
-			if strings.Contains(err.Error(), "NOSCRIPT") {
-				count, err = rdb.Eval(ctx, luaScript, []string{redisKey}, int(window.Seconds())).Int()
-				if err != nil {
-					http.Error(w, `{"error": "Rate limit error"}`, http.StatusInternalServerError)
-					return
-				}
-			} else {
-				http.Error(w, `{"error": "Rate limit error"}`, http.StatusInternalServerError)
-				return
-			}
-		}
-
-		if count > maxRequests {
-			http.Error(w, `{"error": "Too many requests. Please try again later."}`, http.StatusTooManyRequests)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"error": "Rate limit error"}`))
 			return
 		}
 
+		if !allowed {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusTooManyRequests)
+			w.Write([]byte(`{"error": "Too many requests. Please try again later."}`))
+			return
+		}
+		
 		// Call the next handler
 		next.ServeHTTP(w, r)
 	})

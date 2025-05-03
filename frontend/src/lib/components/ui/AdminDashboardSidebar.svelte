@@ -1,17 +1,19 @@
 <script lang="ts">
-    import Icon from '@iconify/svelte';
-    import { goto } from '$app/navigation';
-	import Button from './Button.svelte';
-
-    const widthStyling = "w-full lg:w-[198px] md:w-[198px]";
+	import Icon from '@iconify/svelte';
 </script>
 
 <div class="admin-dashboard-side-panel">
-    <h1 class="text-2xl font-bold text-center hidden lg:block md:block">Admin Dashboard</h1>
-    <Button icon="ri:dashboard-fill" onclick={() => goto('/admin-dashboard')}>
-        <p>Home</p>
-    </Button>
-    <Button icon="material-symbols:person" onclick={() => goto('/admin-dashboard/users')}>
-        <p>Users</p>
-    </Button>
+	<h1 class="hidden text-center text-2xl font-bold md:block lg:block">Admin Dashboard</h1>
+	<a href="/admin-dashboard" class="button-primary">
+		<Icon icon="ic:baseline-dashboard" />
+		<p class="hidden md:block">Dashboard</p>
+	</a>
+	<a href="/admin-dashboard/users" class="button-primary">
+		<Icon icon="ic:baseline-person" />
+		<p class="hidden md:block">Users</p>
+	</a>
+	<a href="/admin-dashboard/workspaces" class="button-primary">
+		<Icon icon="ic:twotone-workspaces" />
+		<p class="hidden md:block">Workspaces</p>
+	</a>
 </div>

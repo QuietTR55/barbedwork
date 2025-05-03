@@ -11,11 +11,11 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - DATABASE_URL=postgres://postgres:${POSTGRES_PASSWORD:?Please provide a password}@postgres:5432/barbedworkdb?sslmode=disable
+      - DATABASE_URL=postgres://postgres:test@postgres:5432/barbedworkdb?sslmode=disable
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - ADMIN_PANEL_PASSWORD=${ADMIN_PANEL_PASSWORD:?Please provide an admin panel password}
-      - DEV=${DEV:-false}
+      - ADMIN_PANEL_PASSWORD=test
+      - DEV=true
     depends_on:
       - postgres
       - redis
@@ -26,7 +26,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Please provide a password}
+      POSTGRES_PASSWORD: test
       POSTGRES_DB: barbedworkdb
     ports:
       - "5432:5432"

@@ -4,7 +4,10 @@ import (
 	"backend/internal/handlers"
 	"backend/internal/repos"
 	"backend/internal/services"
+	"backend/pkg/ratelimiter"
+	"backend/pkg/utilities"
 	"os"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -17,8 +20,10 @@ type Container struct {
 	AdminAuthHandler       *handlers.AdminAuthHandler
 	UserService            *services.UserService
 	UserRepo               *repos.UserRepo
+	UserHandler            *handlers.UserHandler
 	DB                     *pgxpool.Pool
-	RedisClient            *redis.Client
+	Limiter                ratelimiter.RateLimiter
+	SessionStore           utilities.SessionStore
 }
 
 func NewContainer(db *pgxpool.Pool) *Container {
@@ -48,16 +53,24 @@ func NewContainer(db *pgxpool.Pool) *Container {
 		DB:       0,
 	})
 
+	limiter, err := ratelimiter.NewRedisRateLimiter(redisClient, 10*time.Second, 10)
+	sessionStore := utilities.NewRedisSessionStore(redisClient)
+	if err != nil {
+		panic("failed to create rate limiter: " + err.Error())
+	}
+
 	userRepo := repos.NewUserRepo(db)
 	userService := services.NewUserService(userRepo)
-
+	userHandler := handlers.NewUserHandler(userService, sessionStore, limiter)
 	return &Container{
 		AdminPanelPasswordHash: adminPanelPasswordHash,
 		DB:                     db,
-		AdminDashboardHandler:  handlers.NewAdminDashboardHandler(redisClient, adminPanelPasswordHash, userService),
-		AdminAuthHandler:       handlers.NewAdminAuthHandler(adminPanelPasswordHash, redisClient),
-		RedisClient:            redisClient,
+		AdminDashboardHandler:  handlers.NewAdminDashboardHandler(sessionStore, limiter, adminPanelPasswordHash, userService),
+		AdminAuthHandler:       handlers.NewAdminAuthHandler(adminPanelPasswordHash, sessionStore, limiter),
+		Limiter:                limiter,
+		SessionStore:           sessionStore,
 		UserService:            userService,
+		UserHandler:            userHandler,
 		UserRepo:               userRepo,
 	}
 }

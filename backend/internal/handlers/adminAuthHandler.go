@@ -1,13 +1,15 @@
 package handlers
 
 import (
+	"backend/pkg/middleware"
+	"backend/pkg/ratelimiter"
 	"backend/pkg/utilities"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
-	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -15,12 +17,21 @@ const RefreshTokenCookieName = "refreshToken"
 
 type AdminAuthHandler struct {
 	adminPanelPasswordHash []byte
-	redisClient            *redis.Client
+	SessionStore           utilities.SessionStore
+	Limiter                ratelimiter.RateLimiter
 }
 
 // NewAdminAuthHandler creates a new instance of AdminAuthHandler
-func NewAdminAuthHandler(adminPanelPasswordHash []byte, redisClient *redis.Client) *AdminAuthHandler {
-	return &AdminAuthHandler{adminPanelPasswordHash: adminPanelPasswordHash, redisClient: redisClient}
+func NewAdminAuthHandler(adminPanelPasswordHash []byte, sessionStore utilities.SessionStore, limiter ratelimiter.RateLimiter) *AdminAuthHandler {
+	return &AdminAuthHandler{adminPanelPasswordHash: adminPanelPasswordHash, SessionStore: sessionStore, Limiter: limiter}
+}
+
+func (h *AdminAuthHandler) RegisterRoutes(router *http.ServeMux) {
+	router.Handle("/api/auth/admin/login", middleware.RateLimitMiddleware(
+		http.HandlerFunc(h.Login),
+		h.Limiter,
+		time.Minute,
+	))
 }
 
 // Login handles admin login requests
@@ -50,13 +61,13 @@ func (h *AdminAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// --- Password is correct, generate tokens for the admin user ---
 	userId := AdminUserID // Use the predefined admin user ID
 
-	accessToken, err := utilities.GenerateAccessToken(r.Context(), h.redisClient, userId)
+	accessToken, err := utilities.GenerateAccessToken(r.Context(), h.SessionStore, userId)
 	if err != nil {
 		http.Error(w, `{"error": "Could not generate access token"}`, http.StatusInternalServerError)
 		return
 	}
 
-	refreshToken, err := utilities.GenerateRefreshToken(r.Context(), h.redisClient, userId)
+	refreshToken, err := utilities.GenerateRefreshToken(r.Context(), h.SessionStore, userId)
 	if err != nil {
 		http.Error(w, `{"error": "Could not generate refresh token"}`, http.StatusInternalServerError)
 		return
@@ -64,11 +75,8 @@ func (h *AdminAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	// Set the refresh token as a cookie
 	maxAge := 3600 * 24 * 30
-	secure := os.Getenv("DEV") != "true"
-	var sameSite http.SameSite
-	if os.Getenv("DEV") == "true" {
-		sameSite = http.SameSiteLaxMode
-	} else {
+	sameSite := http.SameSiteLaxMode
+	if os.Getenv("DEV") != "" {
 		sameSite = http.SameSiteNoneMode
 	}
 	http.SetCookie(w, &http.Cookie{
@@ -77,11 +85,11 @@ func (h *AdminAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		MaxAge:   maxAge,
 		HttpOnly: true,
-		Secure:   secure,
+		Secure:   true,
 		SameSite: sameSite,
 	})
 
 	// Return the access token in the response body
-	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"accessToken": accessToken})
+	w.WriteHeader(http.StatusOK)
 }

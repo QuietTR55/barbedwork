@@ -39,11 +39,15 @@
 }
 
 .input-primary {
-	@apply bg-background-primary text-text-primary border-border-primary w-full rounded-md border-2 p-2 pl-10 transition-all duration-300 ease-in-out;
+	@apply bg-background-primary text-text-primary border-border-primary w-full rounded-md border-2 p-2 pl-10 transition-all duration-300 ease-in-out outline-none;
 }
 
 .button-primary {
 	@apply bg-accent text-text-button flex cursor-pointer flex-row items-center gap-2 rounded-md px-4 py-2 transition-all duration-300 ease-in-out hover:scale-101;
+}
+
+.button-important {
+	@apply text-text-button flex cursor-pointer flex-row items-center gap-2 rounded-md bg-red-500 px-4 py-2 transition-all duration-300 ease-in-out hover:scale-101;
 }
 
 .background-primary-centered {
@@ -55,7 +59,7 @@
 }
 
 .stats-card-admin-dashboard-sizing {
-	@apply h-48 w-full md:h-64 md:w-64 lg:h-64 lg:w-64;
+	@apply h-48 w-full md:h-48 md:w-48;
 }
 
 .admin-dashboard-side-panel {

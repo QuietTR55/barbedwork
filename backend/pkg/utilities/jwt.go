@@ -33,7 +33,7 @@ type RefreshTokenClaims struct {
 }
 
 // GenerateAccessToken creates a new short-lived access token
-func GenerateAccessToken(ctx context.Context, redisClient *redis.Client, userId string) (string, error) {
+func GenerateAccessToken(ctx context.Context, store SessionStore, userId string) (string, error) {
 	expiresAt := time.Now().Add(15 * time.Minute)
 
 	claims := AccessTokenClaims{
@@ -52,7 +52,7 @@ func GenerateAccessToken(ctx context.Context, redisClient *redis.Client, userId 
 		return "", errors.Join(ErrTokenGeneration, err)
 	}
 
-	err = redisClient.Set(ctx, "session:"+userId, "active", time.Until(expiresAt)).Err()
+	_, err = store.StoreSession(ctx, userId, int(time.Until(expiresAt).Seconds()))
 	if err != nil {
 		return "", errors.Join(ErrSessionStorage, err)
 	}
@@ -61,7 +61,7 @@ func GenerateAccessToken(ctx context.Context, redisClient *redis.Client, userId 
 }
 
 // GenerateRefreshToken creates a new long-lived refresh token and stores it in Redis
-func GenerateRefreshToken(ctx context.Context, redisClient *redis.Client, userId string) (string, error) {
+func GenerateRefreshToken(ctx context.Context, store SessionStore, userId string) (string, error) {
 	expiresAt := time.Now().Add(30 * 24 * time.Hour) // 30 days
 	jti := uuid.NewString()
 
@@ -82,7 +82,7 @@ func GenerateRefreshToken(ctx context.Context, redisClient *redis.Client, userId
 		return "", errors.Join(ErrTokenGeneration, err)
 	}
 
-	err = redisClient.Set(ctx, "refresh:"+jti, userId, time.Until(expiresAt)).Err()
+	err = store.StoreRefreshToken(ctx, jti, userId, int(time.Until(expiresAt).Seconds()))
 	if err != nil {
 		return "", errors.Join(ErrSessionStorage, err)
 	}
@@ -92,7 +92,7 @@ func GenerateRefreshToken(ctx context.Context, redisClient *redis.Client, userId
 
 // ValidateAccessToken checks the access token and ensures the session is valid
 // Returns the userId and an error if invalid.
-func ValidateAccessToken(ctx context.Context, redisClient *redis.Client, tokenString string) (string, error) {
+func ValidateAccessToken(ctx context.Context, store SessionStore, tokenString string) (string, error) {
 	var claims AccessTokenClaims
 	jwtSecret := os.Getenv("JWT_SECRET")
 
@@ -114,7 +114,7 @@ func ValidateAccessToken(ctx context.Context, redisClient *redis.Client, tokenSt
 		return "", ErrTokenInvalid
 	}
 
-	val, err := redisClient.Get(ctx, "session:"+claims.Subject).Result()
+	val, err := store.GetSessionStatus(ctx, claims.Subject)
 	if err != nil {
 		if err == redis.Nil {
 			return "", ErrSessionNotFound
@@ -131,7 +131,7 @@ func ValidateAccessToken(ctx context.Context, redisClient *redis.Client, tokenSt
 
 // ValidateRefreshToken checks the refresh token and matches it against Redis
 // Returns the userId and an error if invalid.
-func ValidateRefreshToken(ctx context.Context, redisClient *redis.Client, tokenString string) (string, string, error) {
+func ValidateRefreshToken(ctx context.Context, store SessionStore, tokenString string) (string, string, error) {
 	var claims RefreshTokenClaims
 	jwtSecret := os.Getenv("JWT_SECRET")
 
@@ -153,7 +153,7 @@ func ValidateRefreshToken(ctx context.Context, redisClient *redis.Client, tokenS
 		return "", "", ErrTokenInvalid
 	}
 
-	userIdFromRedis, err := redisClient.Get(ctx, "refresh:"+claims.Jti).Result()
+	userIdFromRedis, err := store.GetRefreshTokenUser(ctx, claims.Jti)
 	if err != nil {
 		if err == redis.Nil {
 			return "", "", ErrInvalidRefreshToken
@@ -170,11 +170,8 @@ func ValidateRefreshToken(ctx context.Context, redisClient *redis.Client, tokenS
 
 // RevokeUserSession deletes the access token session marker and the specific refresh token entry in Redis
 // Requires the userId (for session marker) and the specific JTI of the refresh token being revoked.
-func RevokeUserSession(ctx context.Context, redisClient *redis.Client, userId string, jti string) error {
-	pipe := redisClient.Pipeline()
-	pipe.Del(ctx, "session:"+userId)
-	pipe.Del(ctx, "refresh:"+jti)
-	_, err := pipe.Exec(ctx)
+func RevokeUserSession(ctx context.Context, store SessionStore, userId string, jti string) error {
+	err := store.RevokeSession(ctx, userId, jti)
 
 	if err != nil && err != redis.Nil {
 		return errors.Join(ErrSessionStorage, err)
@@ -182,14 +179,3 @@ func RevokeUserSession(ctx context.Context, redisClient *redis.Client, userId st
 
 	return nil
 }
-
-// RevokeAllUserRefreshTokens deletes all refresh tokens associated with a user ID.
-// This requires iterating through keys, which can be inefficient on large datasets.
-// Consider alternative structures if frequent mass revocation is needed.
-// func RevokeAllUserRefreshTokens(ctx context.Context, redisClient *redis.Client, userId string) error {
-//  	// Implementation would involve scanning keys matching "refresh:*" and checking the stored userId.
-//  	// This is generally discouraged in production due to performance implications (SCAN).
-//  	// A better approach might involve maintaining a set per user: e.g., user:<userId>:refresh_tokens = {jti1, jti2, ...}
-//  	// Then revocation involves getting the set, deleting each "refresh:<jti>", and deleting the set.
-//  	return errors.New("mass refresh token revocation strategy not implemented")
-// }
