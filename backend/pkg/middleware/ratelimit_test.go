@@ -28,45 +28,46 @@ func assertEqual(t *testing.T, field string, got, want interface{}) {
 
 func TestRateLimitMiddleware(t *testing.T) {
 	tests := []struct {
-		name                   string
-		allowed                bool
-		wantStatus             int
-		forceError             bool
+		name                     string
+		allowed                  bool
+		wantStatus               int
+		forceError               bool
 		expectFinalHandlerCalled bool
-		wantBody               string
-		wantContentType        string
+		wantBody                 string
+		wantContentType          string
 	}{
 		{
-			name:       "allowed request",
-			allowed:    true,
-			wantStatus: http.StatusOK,
-			forceError: false,
+			name:                     "allowed request",
+			allowed:                  true,
+			wantStatus:               http.StatusOK,
+			forceError:               false,
 			expectFinalHandlerCalled: true,
-			wantBody:   "",
-			wantContentType: "",
+			wantBody:                 "",
+			wantContentType:          "",
 		},
 		{
-			name:       "blocked request",
-			allowed:    false,
-			wantStatus: http.StatusTooManyRequests,
-			forceError: false,
+			name:                     "blocked request",
+			allowed:                  false,
+			wantStatus:               http.StatusTooManyRequests,
+			forceError:               false,
 			expectFinalHandlerCalled: false,
-			wantBody:   `{"error": "Too many requests. Please try again later."}`,
-			wantContentType: "application/json",
+			wantBody:                 `{"error": "Too many requests. Please try again later."}`,
+			wantContentType:          "application/json",
 		},
 		{
-			name:       "internal error in rate limiter",
-			allowed:    true, // doesn't matter because forceError=true
-			wantStatus: http.StatusInternalServerError,
-			forceError: true,
+			name:                     "internal error in rate limiter",
+			allowed:                  true, // doesn't matter because forceError=true
+			wantStatus:               http.StatusInternalServerError,
+			forceError:               true,
 			expectFinalHandlerCalled: false,
-			wantBody:   `{"error": "Rate limit error"}`,
-			wantContentType: "application/json",
+			wantBody:                 `{"error": "Rate limit error"}`,
+			wantContentType:          "application/json",
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+
 			var err error
 			if test.forceError {
 				err = fmt.Errorf("simulated error")
@@ -78,16 +79,18 @@ func TestRateLimitMiddleware(t *testing.T) {
 				w.WriteHeader(test.wantStatus)
 			})
 
-			rateLimitMiddleware := RateLimitMiddleware(finalHandler, &fakeLimiter{
-				allowed: test.allowed,
-				err:     err,
-			}, time.Minute)
+			middlewareStack := []Middleware{
+				RateLimitMiddleware(&fakeLimiter{
+					allowed: test.allowed,
+					err:     err,
+				}, time.Minute),
+			}
 
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
 			req.RemoteAddr = "127.0.0.1:12345"
 			rec := httptest.NewRecorder()
 
-			rateLimitMiddleware.ServeHTTP(rec, req)
+			Chain(finalHandler, middlewareStack...).ServeHTTP(rec, req)
 
 			assertEqual(t, "status code", rec.Code, test.wantStatus)
 

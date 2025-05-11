@@ -28,6 +28,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: test
       POSTGRES_DB: barbedworkdb
+      DEV: true
     ports:
       - "5432:5432"
     volumes:

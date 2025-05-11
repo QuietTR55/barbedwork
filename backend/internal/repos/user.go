@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -23,7 +24,7 @@ func (r *UserRepo) CreateUser(ctx context.Context, username string, passwordHash
 	RETURNING id, username
 	`
 
-	var id string
+	var id pgtype.UUID
 	var returnedUsername string
 	err := r.db.QueryRow(ctx, query, username, passwordHash).Scan(&id, &returnedUsername)
 	if err != nil {
@@ -31,7 +32,7 @@ func (r *UserRepo) CreateUser(ctx context.Context, username string, passwordHash
 	}
 
 	user := &models.User{
-		ID:       id,
+		Id:       id,
 		Username: returnedUsername,
 	}
 
@@ -52,7 +53,7 @@ func (r *UserRepo) GetAllUsers(ctx context.Context) ([]*models.User, error) {
 	users := []*models.User{}
 	for rows.Next() {
 		var user models.User
-		err = rows.Scan(&user.ID, &user.Username)
+		err = rows.Scan(&user.Id, &user.Username)
 		if err != nil {
 			return nil, err
 		}
@@ -68,18 +69,20 @@ func (r *UserRepo) GetUserByUsername(ctx context.Context, username string) (*mod
 	SELECT id, username, password_hash FROM users WHERE username = $1
 	`
 
-	var id string
+	var id pgtype.UUID
 	var returnedUsername string
 	var passwordHash string
-	err := r.db.QueryRow(ctx, query, username).Scan(&id, &returnedUsername, &passwordHash)
+	var imagePath pgtype.Text
+	err := r.db.QueryRow(ctx, query, username).Scan(&id, &returnedUsername, &passwordHash, &imagePath)
 	if err != nil {
 		return nil, err
 	}
 
 	user := &models.User{
-		ID:           id,
+		Id:           id,
 		Username:     returnedUsername,
 		PasswordHash: passwordHash,
+		ImagePath:    imagePath,
 	}
 
 	return user, nil
@@ -90,16 +93,19 @@ func (r *UserRepo) GetUserByID(ctx context.Context, userID string) (*models.User
 	SELECT id, username FROM users WHERE id = $1
 	`
 
-	var id string
+	var id pgtype.UUID
 	var returnedUsername string
-	err := r.db.QueryRow(ctx, query, userID).Scan(&id, &returnedUsername)
+	var passwordHash string
+	var imagePath pgtype.Text
+	err := r.db.QueryRow(ctx, query, userID).Scan(&id, &returnedUsername, &passwordHash, &imagePath)
 	if err != nil {
 		return nil, err
 	}
 
 	user := &models.User{
-		ID:       id,
+		Id:       id,
 		Username: returnedUsername,
+		ImagePath: imagePath,
 	}
 
 	return user, nil

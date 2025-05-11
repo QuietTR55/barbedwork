@@ -138,9 +138,12 @@ func TestTokenAuthMiddleware(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			handler := TokenAuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			middlewareStack := []Middleware{
+				TokenAuthMiddleware(testCase.fakeStore),
+			}
+			handler := Chain(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(testCase.expectedStatus)
-			}), testCase.fakeStore)
+			}), middlewareStack...)
 
 			req := httptest.NewRequest("GET", "/test", nil)
 			testCase.setupRequest(req, testCase.fakeStore)

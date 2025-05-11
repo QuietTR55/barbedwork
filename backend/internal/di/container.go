@@ -18,11 +18,12 @@ type Container struct {
 	AdminPanelPasswordHash []byte
 	AdminDashboardHandler  *handlers.AdminDashboardHandler
 	AdminAuthHandler       *handlers.AdminAuthHandler
+	UserAuthHandler 	   *handlers.UserAuthHandler
 	UserService            *services.UserService
 	UserRepo               *repos.UserRepo
 	UserHandler            *handlers.UserHandler
+	DefaultLimiter 	       ratelimiter.RateLimiter
 	DB                     *pgxpool.Pool
-	Limiter                ratelimiter.RateLimiter
 	SessionStore           utilities.SessionStore
 }
 
@@ -53,24 +54,36 @@ func NewContainer(db *pgxpool.Pool) *Container {
 		DB:       0,
 	})
 
-	limiter, err := ratelimiter.NewRedisRateLimiter(redisClient, 10*time.Second, 10)
 	sessionStore := utilities.NewRedisSessionStore(redisClient)
 	if err != nil {
 		panic("failed to create rate limiter: " + err.Error())
 	}
-
+	
+	authLimiter, err := ratelimiter.NewRedisRateLimiter(redisClient, 1*time.Minute, 5)
+	if err != nil {
+		panic("failed to create rate limiter: " + err.Error())
+	}
+	limiter, err := ratelimiter.NewRedisRateLimiter(redisClient, 10*time.Second, 60)
+	if err != nil {
+		panic("failed to create rate limiter: " + err.Error())
+	}
 	userRepo := repos.NewUserRepo(db)
 	userService := services.NewUserService(userRepo)
 	userHandler := handlers.NewUserHandler(userService, sessionStore, limiter)
+
+	userAuthHandler := handlers.NewUserAuthHandler(userService, sessionStore, authLimiter)
+
+	workspaceRepo := repos.NewWorkspaceRepo(db)
 	return &Container{
 		AdminPanelPasswordHash: adminPanelPasswordHash,
 		DB:                     db,
-		AdminDashboardHandler:  handlers.NewAdminDashboardHandler(sessionStore, limiter, adminPanelPasswordHash, userService),
+		AdminDashboardHandler:  handlers.NewAdminDashboardHandler(sessionStore, limiter, adminPanelPasswordHash, userService, workspaceRepo),
 		AdminAuthHandler:       handlers.NewAdminAuthHandler(adminPanelPasswordHash, sessionStore, limiter),
-		Limiter:                limiter,
 		SessionStore:           sessionStore,
 		UserService:            userService,
 		UserHandler:            userHandler,
 		UserRepo:               userRepo,
+		UserAuthHandler:        userAuthHandler,
+		DefaultLimiter:         limiter,
 	}
 }

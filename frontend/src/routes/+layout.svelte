@@ -4,13 +4,12 @@
 	import '../app.css';
 	import ThemeDebugger from '$lib/components/themeDebugger.svelte';
 
-	onMount(() => {
-		console.log('onMount');
-	});
-	
+	onMount(() => {});
+
 	let currentTheme = $state(themeName);
 
 	let { children } = $props();
 </script>
 
+<ThemeDebugger />
 {@render children()}

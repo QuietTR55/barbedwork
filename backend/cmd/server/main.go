@@ -32,6 +32,10 @@ func main() {
 	// Dependency injection container
 	container := di.NewContainer(db)
 
+	// Serve static files from the "./uploads" directory
+	uploadsDir := "./uploads/"
+	mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadsDir))))
+
 	// Setup routes
 	SetupRoutes(mux, container)
 

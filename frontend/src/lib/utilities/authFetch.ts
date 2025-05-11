@@ -1,27 +1,30 @@
 import { getAccessToken, setAccessToken } from '$lib/stores/authentication';
 
 export const authFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
-	const accessToken = getAccessToken();
-	if (!accessToken) {
-		throw new Error('No access token found');
-	}
+  const accessToken = getAccessToken();
+  if (!accessToken) {
+    throw new Error('No access token found');
+  }
 
-	const headers = {
-		...options.headers,
-		Authorization: `Bearer ${accessToken}`,
-		'Content-Type': 'application/json'
-	};
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string> || {}),
+    Authorization: `Bearer ${accessToken}`
+  };
 
-	const response = await fetch(url, {
-		...options,
-		headers,
-		credentials: 'include'
-	});
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
 
-	const newToken = response.headers.get('X-New-Access-Token');
-	if (newToken) {
-		setAccessToken(newToken);
-	}
+  const response = await fetch(url, {
+    ...options,
+    headers,
+    credentials: 'include'
+  });
 
-	return response;
+  const newToken = response.headers.get('X-New-Access-Token');
+  if (newToken) {
+    setAccessToken(newToken);
+  }
+
+  return response;
 };

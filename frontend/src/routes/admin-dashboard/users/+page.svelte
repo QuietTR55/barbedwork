@@ -7,11 +7,12 @@
 	import { authFetch } from '$lib/utilities/authFetch';
 	import Input from '$lib/components/Input.svelte';
 	import Icon from '@iconify/svelte';
+	import type { User } from '$lib/models/user';
 
 	let { data }: { data: PageData } = $props();
 
 	const apiUrl = get(backendUrl);
-	let users = $state([]);
+	let users = $state<User[]>([]);
 	let search = $state('');
 	onMount(async () => {
 		console.log('Fetching users');
@@ -72,7 +73,7 @@
 	};
 
 	// Add this function to truncate text
-	function truncateText(text, maxLength = 25) {
+	function truncateText(text: string, maxLength = 25) {
 		if (text.length <= maxLength) return text;
 		return text.substring(0, maxLength) + '...';
 	}

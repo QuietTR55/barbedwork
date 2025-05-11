@@ -16,30 +16,31 @@ end
 return current
 `
 
-func RateLimitMiddleware(next http.Handler, limiter ratelimiter.RateLimiter, window time.Duration) http.Handler {
+func RateLimitMiddleware(limiter ratelimiter.RateLimiter, window time.Duration) Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			userKey := getUserKey(r) // can be IP or user ID
+			redisKey := fmt.Sprintf("rate_limit:%s", userKey)
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userKey := getUserKey(r) // can be IP or user ID
-		redisKey := fmt.Sprintf("rate_limit:%s", userKey)
+			allowed, err := limiter.Allow(r.Context(), redisKey, window)
+			if err != nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(`{"error": "Rate limit error"}`))
+				return
+			}
 
-		allowed, err := limiter.Allow(r.Context(), redisKey, window)
-		if err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"error": "Rate limit error"}`))
-			return
-		}
+			if !allowed {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusTooManyRequests)
+				w.Write([]byte(`{"error": "Too many requests. Please try again later."}`))
+				return
+			}
 
-		if !allowed {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusTooManyRequests)
-			w.Write([]byte(`{"error": "Too many requests. Please try again later."}`))
-			return
-		}
-		
-		// Call the next handler
-		next.ServeHTTP(w, r)
-	})
+			// Call the next handler
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func getUserKey(r *http.Request) string {

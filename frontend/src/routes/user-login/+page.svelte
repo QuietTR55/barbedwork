@@ -6,6 +6,7 @@
 	import { backendUrl } from '$lib/stores/backend';
 	import { get } from 'svelte/store';
 	import { authFetch } from '$lib/utilities/authFetch';
+	import { goto } from '$app/navigation';
 
 	let { data }: { data: PageData } = $props();
 
@@ -19,7 +20,7 @@
 
 	const loginUser = async () => {
 		const endpoint = `${get(backendUrl)}/api/auth/user-login`;
-		const result = authFetch(endpoint, {
+		const result = await authFetch(endpoint, {
 			method: 'POST',
 			body: JSON.stringify({
 				username: userName,
@@ -29,6 +30,10 @@
 				'Content-Type': 'application/json'
 			}
 		});
+
+		if (result.ok) {
+			goto('/workspaces');
+		}
 	};
 </script>
 

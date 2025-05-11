@@ -1,7 +1,12 @@
 package models
 
+import (
+	"github.com/jackc/pgx/v5/pgtype"
+)
+
 type User struct {
-	ID       string `json:"id"`
+	Id       pgtype.UUID `json:"id"`
 	Username string `json:"username"`
 	PasswordHash string `json:"password_hash"`
+	ImagePath pgtype.Text `json:"image_path"`
 }
