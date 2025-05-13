@@ -8,37 +8,11 @@
 	import Input from '$lib/components/Input.svelte';
 	import Icon from '@iconify/svelte';
 	import type { User } from '$lib/models/user';
-
-	let { data }: { data: PageData } = $props();
+	import { CreateUser } from '$lib/services/adminDashboard';
 
 	const apiUrl = get(backendUrl);
-	let users = $state<User[]>([]);
+	let { data: pageData }: { data: { users: User[] } } = $props();
 	let search = $state('');
-	onMount(async () => {
-		console.log('Fetching users');
-		console.log(getAccessToken());
-		const response = await authFetch(`${apiUrl}/api/admin/users`, {
-			method: 'GET',
-			headers: {
-				'Content-Type': 'application/json',
-				Authorization: `Bearer ${getAccessToken()}`
-			},
-			credentials: 'include'
-		});
-
-		if (!response.ok) {
-			console.error(
-				'Failed to fetch users:',
-				response.status,
-				await response.text().catch(() => '')
-			);
-			return { status: response.status, error: new Error('Failed to fetch users'), users: [] };
-		}
-
-		const dbUsers = await response.json();
-		console.log(dbUsers);
-		users = dbUsers.users;
-	});
 
 	let userName = $state('');
 	let password = $state('');
@@ -46,33 +20,16 @@
 	const createUser = async (event: Event) => {
 		event.preventDefault();
 		console.log(userName, password);
-		const response = await authFetch(`${apiUrl}/api/admin/create-user`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				Authorization: `Bearer ${getAccessToken()}`
-			},
-			body: JSON.stringify({
-				username: userName,
-				password: password
-			})
-		});
-
-		if (!response.ok) {
-			console.error(
-				'Failed to create user:',
-				response.status,
-				await response.text().catch(() => '')
-			);
-			return;
+		let createdUser = await CreateUser(userName, password);
+		if (createdUser) {
+			pageData.users = [...pageData.users, createdUser];
+			userName = '';
+			password = '';
+		} else {
+			console.error('Failed to create user');
 		}
-
-		const data = await response.json();
-		console.log(data);
-		users.push(data.user);
 	};
 
-	// Add this function to truncate text
 	function truncateText(text: string, maxLength = 25) {
 		if (text.length <= maxLength) return text;
 		return text.substring(0, maxLength) + '...';
@@ -83,9 +40,9 @@
 	};
 </script>
 
-<div class="flex h-full flex-col gap-4 overflow-y-auto xl:h-max xl:flex-row">
+<div class="flex h-full flex-col gap-4 overflow-y-auto lg:h-max lg:flex-row">
 	<form
-		class="bg-background-secondary flex w-full flex-col gap-2 rounded-md p-2 xl:h-min xl:w-[400px]"
+		class="bg-background-secondary flex w-full flex-col gap-2 rounded-md p-2 lg:h-min lg:w-[400px]"
 		onsubmit={createUser}
 	>
 		<Input
@@ -106,7 +63,7 @@
 			<p class="text-center">Create New User</p>
 		</button>
 	</form>
-	<div class="flex h-full flex-col gap-2 xl:w-full">
+	<div class="flex h-full flex-col gap-2 lg:w-full">
 		<h1 class="text-2xl font-bold">Users</h1>
 		<Input
 			icon="ic:baseline-search"
@@ -115,9 +72,9 @@
 			bind:value={search}
 			maxlength={50}
 		/>
-		<p class="text-text-secondary text-sm">Showing {users.length} users</p>
+		<p class="text-text-secondary text-sm">Showing {pageData.users.length} users</p>
 		<ul class="flex flex-col gap-2 overflow-y-auto">
-			{#each users as user}
+			{#each pageData.users as user (user.id)}
 				{#if user.username.toLowerCase().includes(search.toLowerCase())}
 					<li
 						class="bg-background-secondary flex flex-row items-center justify-between rounded-md p-2"

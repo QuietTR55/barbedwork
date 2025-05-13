@@ -92,6 +92,7 @@ func (h *AdminAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// Return the access token in the response body
-	json.NewEncoder(w).Encode(map[string]string{"accessToken": accessToken})
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"accessToken": accessToken})
 }

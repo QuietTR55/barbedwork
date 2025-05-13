@@ -11,9 +11,6 @@
 
 	let { data }: { data: { workspaces: Workspace[] } } = $props();
 	let workspaces: Workspace[] = $state<Workspace[]>(data.workspaces);
-	for (let i = 0; i < workspaces.length; i++) {
-		console.log('workspace : ', workspaces[i]);
-	}
 	let url = get(backendUrl);
 	async function createWorkspace(event: Event) {
 		event.preventDefault();

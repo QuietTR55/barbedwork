@@ -43,7 +43,7 @@
 }
 
 .button-primary {
-	@apply bg-accent text-text-button flex cursor-pointer flex-row items-center gap-2 rounded-md px-4 py-2 transition-all duration-300 ease-in-out hover:scale-101;
+	@apply bg-accent text-text-button flex flex-row items-center gap-2 rounded-md px-4 py-2 transition-all duration-300 ease-in-out hover:scale-101;
 }
 
 .button-important {
@@ -63,5 +63,5 @@
 }
 
 .admin-dashboard-side-panel {
-	@apply bg-background-secondary text-text-primary border-border-primary flex h-full w-full flex-row gap-2 border-t-2 p-2 md:flex-col md:border-t-0 md:border-r-2 lg:flex-col;
+	@apply bg-background-secondary text-text-primary border-border-primary flex h-full w-full flex-row gap-2 border-t-2 p-2 lg:flex-col lg:border-t-0 lg:border-r-2;
 }
