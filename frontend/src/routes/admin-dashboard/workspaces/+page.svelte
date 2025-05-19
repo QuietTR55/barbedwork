@@ -104,6 +104,7 @@
 						{/if}
 						<a href={`/admin-dashboard/workspaces/${workspace.Id}`}>
 							{workspace.Name}
+							{workspace.Id}
 						</a>
 					</li>
 				{/each}

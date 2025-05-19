@@ -64,6 +64,10 @@ func (h *AdminDashboardHandler) RegisterRoutes(router *http.ServeMux) {
 		adminStack...,
 	))
 
+	router.Handle("/api/admin/workspaces/{workspaceId}/users/{userId}", middleware.Chain(
+		http.HandlerFunc(h.AddUserToWorkspace),
+		adminStack...,
+	))
 }
 
 func (h *AdminDashboardHandler) GetDashboardData(w http.ResponseWriter, r *http.Request) {
@@ -218,6 +222,8 @@ func (h *AdminDashboardHandler) GetWorkspace(w http.ResponseWriter, r *http.Requ
 	}
 
 	workspace, err := h.workspaceRepo.GetWorkspace(r.Context(), workspaceID)
+	fmt.Println("Workspace ID:", workspaceID)
+	fmt.Println("users", workspace.Users)
 	if err != nil {
 		fmt.Println("Unable to get workspace:", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -227,4 +233,37 @@ func (h *AdminDashboardHandler) GetWorkspace(w http.ResponseWriter, r *http.Requ
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(workspace)
+}
+
+func (h *AdminDashboardHandler) AddUserToWorkspace(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	userId, _ := r.Context().Value(utilities.UserIDKey).(string)
+	if userId != AdminUserID {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	workspaceID := r.PathValue("workspaceId")
+	fmt.Println("Workspace ID:", workspaceID)
+	if workspaceID == "" {
+		http.Error(w, "Workspace ID is required", http.StatusBadRequest)
+		return
+	}
+
+	userId = r.PathValue("userId")
+	fmt.Println("User ID:", userId)
+	if userId == "" {
+		http.Error(w, "User ID is required", http.StatusBadRequest)
+		return
+	}
+
+	err := h.workspaceRepo.AddUserToWorkspace(r.Context(), userId, workspaceID)
+	if err != nil {
+		http.Error(w, "Unable to add user to workspace", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }

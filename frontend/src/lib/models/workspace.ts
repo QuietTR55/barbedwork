@@ -9,5 +9,5 @@ export type Workspace = {
 	Id: string;
 	ImagePath: ImagePathObject;
 	Name: string;
-	users: User[];
+	Users: User[];
 };

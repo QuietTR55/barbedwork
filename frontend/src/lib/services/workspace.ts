@@ -1,17 +1,16 @@
-export const getWorkspaceAsAdmin = async (workspaceId: string): Promise<any> => {
-	const endPoint = '/api/admin/workspaces/' + workspaceId;
-	const response = await fetch(endPoint, {
-		method: 'GET',
-		headers: {
-			'Content-Type': 'application/json'
-		},
-		credentials: 'include'
+import type { User } from '$lib/models/user';
+import { backendUrl } from '$lib/stores/backend';
+import { authFetch } from '$lib/utilities/authFetch';
+import { get } from 'svelte/store';
+
+export async function addUserToWorkspace(workspaceId: string, userId: string): Promise<boolean> {
+	const endPoint = get(backendUrl) + '/api/admin/workspaces/' + workspaceId + '/users/' + userId;
+	const response = await authFetch(endPoint, {
+		method: 'POST'
 	});
 
 	if (!response.ok) {
-		throw new Error('Failed to fetch workspace');
+		throw new Error('Failed to add user to workspace');
 	}
-
-	const workspace = await response.json();
-	return workspace;
-};
+	return true;
+}

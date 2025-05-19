@@ -144,3 +144,17 @@ func (repo *WorkspaceRepo) GetAllWorkspaces(ctx context.Context) ([]*models.Work
 	fmt.Println("Workspaces retrieved successfully", workspaces)
 	return workspaces, nil
 }
+
+func (repo *WorkspaceRepo) AddUserToWorkspace(ctx context.Context, userID string, workspaceID string) error {
+    query := `
+        INSERT INTO workspace_users (user_id, workspace_id)
+        VALUES ($1, $2)
+        ON CONFLICT (user_id, workspace_id) DO NOTHING
+    `
+    _, err := repo.db.Exec(ctx, query, userID, workspaceID)
+    if err != nil {
+        return err
+    }
+    fmt.Println("User added to workspace successfully")
+    return nil
+}
