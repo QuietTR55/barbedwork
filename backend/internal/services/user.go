@@ -5,6 +5,7 @@ import (
 	"backend/internal/repos"
 	"context"
 	"errors"
+	"fmt"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -32,9 +33,11 @@ func (s *UserService) CreateUser(ctx context.Context, username string, passwordH
 func (s *UserService) Login(ctx context.Context, username string, password string) (*models.User, error) {
 	user, err := s.userRepo.GetUserByUsername(ctx, username)
 	if err != nil {
+		fmt.Println("Error getting user by username:", err)
 		return nil, err
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		fmt.Println("Password comparison failed:", err)
 		return nil, ErrInvalidPassword
 	}
 	return user, nil

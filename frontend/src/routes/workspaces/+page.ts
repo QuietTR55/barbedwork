@@ -1,7 +1,12 @@
-import type { PageLoad } from "../$types";
+import { getUserWorkspaces } from '$lib/services/workspace';
+import type { PageLoad } from '../$types';
 
-export const load: PageLoad = ({ params }) => {
-  return {
-    test: "test yes omg holy shit"
-  }
-}
+export const load: PageLoad = async ({ params }) => {
+	let workspaces = await getUserWorkspaces();
+	if (!workspaces) {
+		workspaces = [];
+	}
+	return {
+		workspaces
+	};
+};

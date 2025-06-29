@@ -72,8 +72,8 @@ func (r *UserRepo) GetUserByUsername(ctx context.Context, username string) (*mod
 	var id pgtype.UUID
 	var returnedUsername string
 	var passwordHash string
-	var imagePath pgtype.Text
-	err := r.db.QueryRow(ctx, query, username).Scan(&id, &returnedUsername, &passwordHash, &imagePath)
+	//var imagePath pgtype.Text
+	err := r.db.QueryRow(ctx, query, username).Scan(&id, &returnedUsername, &passwordHash, /*&imagePath*/)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (r *UserRepo) GetUserByUsername(ctx context.Context, username string) (*mod
 		Id:           id,
 		Username:     returnedUsername,
 		PasswordHash: passwordHash,
-		ImagePath:    imagePath,
+		ImagePath:    pgtype.Text{},
 	}
 
 	return user, nil

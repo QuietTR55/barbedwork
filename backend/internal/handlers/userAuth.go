@@ -6,6 +6,7 @@ import (
 	"backend/pkg/ratelimiter"
 	"backend/pkg/utilities"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -52,18 +53,21 @@ func (h *UserAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.userService.Login(r.Context(), credentials.Username, credentials.Password)
 	if err != nil {
+		fmt.Println("Login error:", err)
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
 	accessToken, err := utilities.GenerateAccessToken(r.Context(), h.store, user.Id.String())
 	if err != nil {
+		fmt.Println("Access token generation error:", err)
 		http.Error(w, "Failed to generate access token", http.StatusInternalServerError)
 		return
 	}
 
 	refreshToken, err := utilities.GenerateRefreshToken(r.Context(), h.store, user.Id.String())
 	if err != nil {
+		fmt.Println("Refresh token generation error:", err)
 		http.Error(w, "Failed to generate refresh token", http.StatusInternalServerError)
 		return
 	}

@@ -33,7 +33,6 @@ func (repo *WorkspaceRepo) CreateWorkspace(ctx context.Context, workspaceName st
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("Workspace created successfully with ID:", workspaceID)
 	return &createdWorkspace, nil
 }
 
@@ -141,7 +140,6 @@ func (repo *WorkspaceRepo) GetAllWorkspaces(ctx context.Context) ([]*models.Work
 	if err = rows.Err(); err != nil {
 		return nil, err // Check for errors during iteration
 	}
-	fmt.Println("Workspaces retrieved successfully", workspaces)
 	return workspaces, nil
 }
 
@@ -155,6 +153,34 @@ func (repo *WorkspaceRepo) AddUserToWorkspace(ctx context.Context, userID string
     if err != nil {
         return err
     }
-    fmt.Println("User added to workspace successfully")
     return nil
+}
+
+func (repo *WorkspaceRepo) GetUserWorkspaces(ctx context.Context, userId string) ([]*models.Workspace, error) {
+    query := `
+        SELECT w.id, w.name, w.image_path
+        FROM workspaces w
+        JOIN workspace_users wu ON w.id = wu.workspace_id
+        WHERE wu.user_id = $1
+    `
+    rows, err := repo.db.Query(ctx, query, userId)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var workspaces []*models.Workspace
+    for rows.Next() {
+        var workspace models.Workspace
+        err := rows.Scan(&workspace.Id, &workspace.Name, &workspace.ImagePath)
+        if err != nil {
+            return nil, err // Return any error encountered during scanning
+        }
+        workspaces = append(workspaces, &workspace)
+    }
+
+    if err = rows.Err(); err != nil {
+        return nil, err // Check for errors during iteration
+    }
+    return workspaces, nil
 }

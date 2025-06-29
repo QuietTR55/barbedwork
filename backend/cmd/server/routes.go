@@ -24,4 +24,5 @@ func SetupRoutes(mux *http.ServeMux, container *di.Container) {
 	container.AdminDashboardHandler.RegisterRoutes(mux)
 	container.UserHandler.RegisterRoutes(mux)
 	container.UserAuthHandler.RegisterRoutes(mux)
+	container.WorkspaceHandler.RegisterRoutes(mux)
 }
