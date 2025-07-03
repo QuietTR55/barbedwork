@@ -7,6 +7,7 @@
 	import { get } from 'svelte/store';
 	import { authFetch } from '$lib/utilities/authFetch';
 	import { goto } from '$app/navigation';
+	import { setAccessToken } from '$lib/stores/authentication';
 
 	let { data }: { data: PageData } = $props();
 
@@ -20,7 +21,7 @@
 
 	const loginUser = async () => {
 		const endpoint = `${get(backendUrl)}/api/auth/user-login`;
-		const result = await authFetch(endpoint, {
+		const result = await fetch(endpoint, {
 			method: 'POST',
 			body: JSON.stringify({
 				username: userName,
@@ -30,6 +31,25 @@
 				'Content-Type': 'application/json'
 			}
 		});
+		if (!result.ok) {
+			const errorText = await result.text();
+			console.error('Login failed:', result.status, errorText);
+			return;
+		}
+		let accessToken: string | null = null;
+		try {
+			const data = await result.json();
+			accessToken = data.accessToken;
+		} catch (err) {
+			console.error('Error parsing JSON:', err);
+			return;
+		}
+		if (!accessToken) {
+			console.error('No access token received');
+			return;
+		}
+		console.log('Access token received:', accessToken);
+		setAccessToken(accessToken);
 
 		if (result.ok) {
 			goto('/workspaces');

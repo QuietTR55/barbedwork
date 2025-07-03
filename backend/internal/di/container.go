@@ -56,9 +56,6 @@ func NewContainer(db *pgxpool.Pool) *Container {
 	})
 
 	sessionStore := utilities.NewRedisSessionStore(redisClient)
-	if err != nil {
-		panic("failed to create rate limiter: " + err.Error())
-	}
 	
 	authLimiter, err := ratelimiter.NewRedisRateLimiter(redisClient, 1*time.Minute, 5)
 	if err != nil {
@@ -71,6 +68,9 @@ func NewContainer(db *pgxpool.Pool) *Container {
 	userRepo := repos.NewUserRepo(db)
 	userService := services.NewUserService(userRepo)
 	userHandler := handlers.NewUserHandler(userService, sessionStore, limiter)
+	
+	// Initialize utilities with user service
+	utilities.SetUserService(userService)
 	
 	userAuthHandler := handlers.NewUserAuthHandler(userService, sessionStore, authLimiter)
 	

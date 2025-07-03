@@ -3,6 +3,7 @@
 :root {
 	--background-primary: #1c1917;
 	--background-secondary: #292524;
+	--background-tertiary: #44403c;
 	--text-primary: #fafaf9;
 	--text-secondary: #6b7280;
 	--accent: #8b5cf6;
@@ -12,6 +13,7 @@
 [data-theme='light'] {
 	--background-primary: #fafaf9;
 	--background-secondary: #e5e7eb;
+	--background-tertiary: #f3f4f6;
 	--text-primary: #1f2937;
 	--text-secondary: #6b7280;
 	--text-button: #fafaf9;
@@ -22,6 +24,7 @@
 [data-theme='dark'] {
 	--background-primary: #1c1917;
 	--background-secondary: #292524;
+	--background-tertiary: #292726;
 	--text-primary: #fafaf9;
 	--text-secondary: #9ca3af;
 	--accent: #8b5cf6;
@@ -31,6 +34,7 @@
 @theme {
 	--color-background-primary: var(--background-primary);
 	--color-background-secondary: var(--background-secondary);
+	--color-background-tertiary: var(--background-tertiary);
 	--color-text-primary: var(--text-primary);
 	--color-text-secondary: var(--text-secondary);
 	--color-text-button: var(--text-button);

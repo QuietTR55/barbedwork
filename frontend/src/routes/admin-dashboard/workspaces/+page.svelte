@@ -7,7 +7,7 @@
 	import type { PageProps } from '../$types';
 	import type { Workspace } from '$lib/models/workspace';
 
-	let selectedFile: File | null = null;
+	let selectedFile: File | null = $state(null);
 
 	let { data }: { data: { workspaces: Workspace[] } } = $props();
 	let workspaces: Workspace[] = $state<Workspace[]>(data.workspaces);
@@ -52,7 +52,7 @@
 		/>
 		<button class="button-primary" type="submit"> Create </button>
 	</form>
-	{#if workspaces.length > 0}
+	{#if workspaces && workspaces.length > 0}
 		<div
 			class="bg-background-secondary flex w-full flex-col items-center gap-2 rounded-lg p-4 shadow-md"
 		>

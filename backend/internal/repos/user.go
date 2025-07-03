@@ -110,3 +110,51 @@ func (r *UserRepo) GetUserByID(ctx context.Context, userID string) (*models.User
 
 	return user, nil
 }
+
+func (r *UserRepo) GetUserPermissions(ctx context.Context, userID string, workspaceId string) ([]string, error) {
+	var query string = `
+	SELECT permission FROM user_permissions WHERE user_id = $1 AND workspace_id = $2
+	`
+
+	rows, err := r.db.Query(ctx, query, userID, workspaceId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var permissions []string
+	for rows.Next() {
+		var permission string
+		err = rows.Scan(&permission)
+		if err != nil {
+			return nil, err
+		}
+		permissions = append(permissions, permission)
+	}
+
+	return permissions, nil
+}
+
+func (r *UserRepo) GetAllUserPermissions(ctx context.Context, userID string) ([]string, error) {
+	var query string = `
+	SELECT DISTINCT permission FROM user_permissions WHERE user_id = $1
+	`
+
+	rows, err := r.db.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var permissions []string
+	for rows.Next() {
+		var permission string
+		err = rows.Scan(&permission)
+		if err != nil {
+			return nil, err
+		}
+		permissions = append(permissions, permission)
+	}
+
+	return permissions, nil
+}

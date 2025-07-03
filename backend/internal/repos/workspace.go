@@ -153,6 +153,15 @@ func (repo *WorkspaceRepo) AddUserToWorkspace(ctx context.Context, userID string
     if err != nil {
         return err
     }
+
+    userPermissionQuery := `
+        INSERT INTO user_permissions (user_id, workspace_id, permission)
+        VALUES ($1, $2, 'user')
+    `
+    _, err = repo.db.Exec(ctx, userPermissionQuery, userID, workspaceID)
+    if err != nil {
+        return err
+    }
     return nil
 }
 

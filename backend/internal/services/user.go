@@ -50,3 +50,11 @@ func (s *UserService) GetAllUsers(ctx context.Context) ([]*models.User, error) {
 func (s *UserService) GetUser(ctx context.Context, userID string) (*models.User, error) {
 	return s.userRepo.GetUserByID(ctx, userID)
 }
+
+func (s *UserService) GetUserPermissions(ctx context.Context, userID string) ([]string, error) {
+	return s.userRepo.GetAllUserPermissions(ctx, userID)
+}
+
+func (s *UserService) GetUserPermissionsForWorkspace(ctx context.Context, userID string, workspaceID string) ([]string, error) {
+	return s.userRepo.GetUserPermissions(ctx, userID, workspaceID)
+}

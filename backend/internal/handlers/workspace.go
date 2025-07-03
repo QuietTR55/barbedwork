@@ -33,6 +33,10 @@ func (h *WorkspaceHandler) RegisterRoutes(router *http.ServeMux) {
 		http.HandlerFunc(h.GetWorkspaces),
 		stack...,
 	))
+	router.Handle("/api/workspaces/{workspaceId}", middleware.Chain(
+		http.HandlerFunc(h.GetWorkspace),
+		stack...,
+	))
 }
 
 
@@ -53,4 +57,23 @@ func (h *WorkspaceHandler) GetWorkspaces(w http.ResponseWriter, r *http.Request)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(workspaces)
+}
+
+func (h *WorkspaceHandler) GetWorkspace(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	workspaceID := r.URL.Query().Get("workspaceId")
+	if workspaceID == "" {
+		http.Error(w, "Workspace ID is required", http.StatusBadRequest)
+		return
+	}
+	workspace, err := h.workspaceRepo.GetWorkspace(r.Context(), workspaceID)
+	if err != nil {
+		http.Error(w, "Failed to get workspace", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(workspace)
 }
