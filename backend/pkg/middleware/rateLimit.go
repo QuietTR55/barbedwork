@@ -8,19 +8,11 @@ import (
 	"time"
 )
 
-const luaScript = `
-local current = redis.call("INCR",KEYS[1])
-if tonumber(current) == 1 then
-	redis.call("EXPIRE",KEYS[1],ARGV[1])
-end
-return current
-`
-
-func RateLimitMiddleware(limiter ratelimiter.RateLimiter, window time.Duration) Middleware {
+func RateLimitMiddleware(limiter ratelimiter.RateLimiter, window time.Duration, context string) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			userKey := getUserKey(r) // can be IP or user ID
-			redisKey := fmt.Sprintf("rate_limit:%s", userKey)
+			redisKey := fmt.Sprintf("rate_limit:%s:%s", context, userKey)
 
 			allowed, err := limiter.Allow(r.Context(), redisKey, window)
 			if err != nil {

@@ -39,13 +39,20 @@ func (repo *WorkspaceRepo) CreateWorkspace(ctx context.Context, workspaceName st
 func (repo *WorkspaceRepo) GetWorkspace(ctx context.Context, workspaceID string) (*models.WorkspaceFullData, error) {
     var workspaceData models.WorkspaceFullData
     var users []models.User = make([]models.User, 0)
+    var channels []models.WorkspaceChannel = make([]models.WorkspaceChannel, 0)
+    
+    // Maps to track unique users and channels to avoid duplicates
+    userMap := make(map[string]models.User)
+    channelMap := make(map[string]models.WorkspaceChannel)
 
     query := `
         SELECT w.id, w.name, w.image_path,
-               u.id, u.username, u.image_path
+               u.id, u.username, u.image_path,
+               c.id, c.channel_name, c.workspace_id, c.channel_emoji
         FROM workspaces w
         LEFT JOIN workspace_users wu ON w.id = wu.workspace_id
         LEFT JOIN users u ON wu.user_id = u.id
+        LEFT JOIN workspace_channels c ON w.id = c.workspace_id
         WHERE w.id = $1
     `
 
@@ -59,20 +66,30 @@ func (repo *WorkspaceRepo) GetWorkspace(ctx context.Context, workspaceID string)
     for rows.Next() {
         var tempWorkspaceId uuid.UUID
         var tempWorkspaceName string
-        var tempWorkspaceImagePath sql.NullString // This was correct
+        var tempWorkspaceImagePath sql.NullString
 
         // Use pgtype for nullable user fields, matching your pgx driver
         var userID pgtype.UUID
         var userName pgtype.Text
         var userImagePath pgtype.Text
 
+        // Add channel variables to match the query
+        var channelID sql.NullInt32
+        var channelName sql.NullString
+        var channelWorkspaceID pgtype.UUID
+        var channelEmoji sql.NullString
+
         err := rows.Scan(
             &tempWorkspaceId,
             &tempWorkspaceName,
-            &tempWorkspaceImagePath, // Scan workspace image path
-            &userID,                 // Scan user ID into nullable type
-            &userName,               // Scan username into nullable type
-            &userImagePath,          // Scan user image path into nullable type
+            &tempWorkspaceImagePath,
+            &userID,
+            &userName,
+            &userImagePath,
+            &channelID,          // Scan channel ID
+            &channelName,        // Scan channel name
+            &channelWorkspaceID, // Scan channel workspace ID
+            &channelEmoji,       // Scan channel emoji
         )
         if err != nil {
             return nil, fmt.Errorf("scanning workspace and user row: %w", err)
@@ -81,7 +98,7 @@ func (repo *WorkspaceRepo) GetWorkspace(ctx context.Context, workspaceID string)
         if !firstRowProcessed {
             workspaceData.Id = tempWorkspaceId
             workspaceData.Name = tempWorkspaceName
-            if tempWorkspaceImagePath.Valid { // Check if workspace image path is not null
+            if tempWorkspaceImagePath.Valid {
                 workspaceData.ImagePath = tempWorkspaceImagePath
             } else {
                 workspaceData.ImagePath = sql.NullString{}
@@ -91,16 +108,39 @@ func (repo *WorkspaceRepo) GetWorkspace(ctx context.Context, workspaceID string)
 
         // Only create and add user if userID is valid (i.e., a user was found by the LEFT JOIN)
         if userID.Valid {
-            currentUser := models.User{
-                Id: userID, // Get the actual UUID value
+            userUUID := userID.Bytes
+            userKey := fmt.Sprintf("%x", userUUID)
+            
+            if _, exists := userMap[userKey]; !exists {
+                currentUser := models.User{
+                    Id: userID,
+                }
+                if userName.Valid {
+                    currentUser.Username = userName.String
+                }
+                if userImagePath.Valid {
+                    currentUser.ImagePath = userImagePath
+                }
+                userMap[userKey] = currentUser
             }
-            if userName.Valid {
-                currentUser.Username = userName.String
+        }
+
+        // Handle channel data if channel ID is valid
+        if channelID.Valid {
+            channelKey := fmt.Sprintf("%d", channelID.Int32)
+            
+            if _, exists := channelMap[channelKey]; !exists {
+                currentChannel := models.WorkspaceChannel{
+                    ID: channelKey,
+                }
+                if channelName.Valid {
+                    currentChannel.Name = channelName.String
+                }
+                if channelEmoji.Valid {
+                    currentChannel.Emoji = channelEmoji.String
+                }
+                channelMap[channelKey] = currentChannel
             }
-            if userImagePath.Valid {
-                currentUser.ImagePath = userImagePath
-            }
-            users = append(users, currentUser)
         }
     }
 
@@ -112,7 +152,16 @@ func (repo *WorkspaceRepo) GetWorkspace(ctx context.Context, workspaceID string)
         return nil, pgx.ErrNoRows // Workspace itself not found
     }
 
+    // Convert maps to slices
+    for _, user := range userMap {
+        users = append(users, user)
+    }
+    for _, channel := range channelMap {
+        channels = append(channels, channel)
+    }
+
     workspaceData.Users = users
+    workspaceData.Channels = channels
     return &workspaceData, nil
 }
 
@@ -192,4 +241,60 @@ func (repo *WorkspaceRepo) GetUserWorkspaces(ctx context.Context, userId string)
         return nil, err // Check for errors during iteration
     }
     return workspaces, nil
+}
+
+func (repo *WorkspaceRepo) CreateChannel(ctx context.Context, workspaceId string, channelName string, channelEmoji string) (*models.WorkspaceChannel, error) {
+    // Set default values if not provided
+    if channelName == "" {
+        channelName = "general"
+    }
+    if channelEmoji == "" {
+        channelEmoji = "💬"
+    }
+    
+    query := `
+        INSERT INTO workspace_channels (workspace_id, channel_name, channel_emoji)
+        VALUES ($1, $2, $3)
+        RETURNING id, channel_name, channel_emoji
+    `
+    var channelId int32
+    var returnedChannelName string
+    var returnedChannelEmoji string
+    err := repo.db.QueryRow(ctx, query, workspaceId, channelName, channelEmoji).Scan(&channelId, &returnedChannelName, &returnedChannelEmoji)
+    if err != nil {
+        return nil, err
+    }
+
+    return &models.WorkspaceChannel{
+        ID:           fmt.Sprintf("%d", channelId),
+        Name:         returnedChannelName,
+        Emoji:        returnedChannelEmoji,
+    }, nil
+}   
+
+func (repo *WorkspaceRepo) GetAvailablePermissions(ctx context.Context) ([]string, error) {
+    query := `
+        SELECT name
+        FROM permissions
+    `
+    rows, err := repo.db.Query(ctx, query)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var permissions []string
+    for rows.Next() {
+        var permission string
+        err := rows.Scan(&permission)
+        if err != nil {
+            return nil, err // Return any error encountered during scanning
+        }
+        permissions = append(permissions, permission)
+    }
+
+    if err = rows.Err(); err != nil {
+        return nil, err // Check for errors during iteration
+    }
+    return permissions, nil
 }

@@ -23,6 +23,9 @@ type Container struct {
 	UserRepo               *repos.UserRepo
 	UserHandler            *handlers.UserHandler
 	WorkspaceHandler       *handlers.WorkspaceHandler
+	RoleHandler            *handlers.RoleHandler
+	RoleService            *services.RoleService
+	RoleRepo               *repos.RoleRepo
 	DefaultLimiter         ratelimiter.RateLimiter
 	DB                     *pgxpool.Pool
 	SessionStore           utilities.SessionStore
@@ -69,13 +72,17 @@ func NewContainer(db *pgxpool.Pool) *Container {
 	userService := services.NewUserService(userRepo)
 	userHandler := handlers.NewUserHandler(userService, sessionStore, limiter)
 	
-	// Initialize utilities with user service
-	utilities.SetUserService(userService)
+	permissionChecker := utilities.NewPermissionChecker(userService, userRepo)
 	
 	userAuthHandler := handlers.NewUserAuthHandler(userService, sessionStore, authLimiter)
 	
 	workspaceRepo := repos.NewWorkspaceRepo(db)
-	workspaceHandler := handlers.NewWorkspaceHandler(workspaceRepo, sessionStore, limiter)
+	workspaceHandler := handlers.NewWorkspaceHandler(workspaceRepo, sessionStore, limiter, permissionChecker)
+	
+	roleRepo := repos.NewRoleRepo(db)
+	roleService := services.NewRoleService(roleRepo, userRepo)
+	roleHandler := handlers.NewRoleHandler(roleService, sessionStore, limiter, permissionChecker)
+	
 	return &Container{
 		AdminPanelPasswordHash: adminPanelPasswordHash,
 		DB:                     db,
@@ -88,5 +95,8 @@ func NewContainer(db *pgxpool.Pool) *Container {
 		UserAuthHandler:        userAuthHandler,
 		DefaultLimiter:         limiter,
 		WorkspaceHandler:       workspaceHandler,
+		RoleHandler:            roleHandler,
+		RoleService:            roleService,
+		RoleRepo:               roleRepo,
 	}
 }

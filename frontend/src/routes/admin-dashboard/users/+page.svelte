@@ -9,6 +9,7 @@
 	import Icon from '@iconify/svelte';
 	import type { User } from '$lib/models/user';
 	import { CreateUser } from '$lib/services/adminDashboard';
+	import Modal from '$lib/components/ui/Modal.svelte';
 
 	const apiUrl = get(backendUrl);
 	let { data: pageData }: { data: { users: User[] } } = $props();
@@ -16,6 +17,9 @@
 
 	let userName = $state('');
 	let password = $state('');
+
+	let userToEdit: User | null = $state(null);
+	let isEditUserModalOpen: boolean = $state(false);
 
 	const createUser = async (event: Event) => {
 		event.preventDefault();
@@ -37,6 +41,11 @@
 
 	const deactivateUser = async (userid: string) => {
 		console.log(userid);
+	};
+
+	const handleClickEditUser = (user: User) => {
+		userToEdit = user;
+		isEditUserModalOpen = true;
 	};
 </script>
 
@@ -80,13 +89,25 @@
 						class="bg-background-secondary flex flex-row items-center justify-between rounded-md p-2"
 					>
 						<p class="truncate">{truncateText(user.username, 50)}</p>
-						<button class="button-important" onclick={() => deactivateUser(user.id)}>
-							<Icon icon="ic:twotone-no-accounts" />
-							<p class="hidden text-center sm:block">Deactivate</p>
-						</button>
+						<div class="flex flex-row items-center gap-2">
+							<button onclick={(e) => handleClickEditUser(user)} class="button-secondary">
+								<Icon icon="ic:baseline-edit" class="h-5 w-5" />
+							</button>
+							<button class="button-important" onclick={() => deactivateUser(user.id)}>
+								<Icon icon="ic:twotone-no-accounts" />
+								<p class="hidden text-center sm:block">Deactivate</p>
+							</button>
+						</div>
 					</li>
 				{/if}
 			{/each}
 		</ul>
 	</div>
 </div>
+
+<Modal title="edit user" isOpen={isEditUserModalOpen} onClose={() => (isEditUserModalOpen = false)}>
+	<h1 class=" text-center text-xl">{userToEdit?.username}</h1>
+	{#each userToEdit?.permissions ?? [] as permission}
+		<p class="text-text-secondary text-center">{permission}</p>
+	{/each}
+</Modal>

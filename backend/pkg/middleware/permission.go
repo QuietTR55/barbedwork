@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-func PermissionMiddleware(requiredPermission string) Middleware {
+func PermissionMiddleware(permissionChecker *utilities.PermissionChecker, requiredPermissions ...string) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			userId, ok := r.Context().Value(utilities.UserIDKey).(string)
@@ -14,11 +14,24 @@ func PermissionMiddleware(requiredPermission string) Middleware {
 				return
 			}
 
-			// Check if the user has the required permission
-			hasPermission, err := utilities.CheckUserPermission(r.Context(), userId, requiredPermission)
-			if err != nil {
-				http.Error(w, "Internal server error", http.StatusInternalServerError)
+			// Admin users bypass all permission checks
+			if userId == "admin" {
+				next.ServeHTTP(w, r)
 				return
+			}
+
+			// Check if the user has any of the required permissions
+			hasPermission := false
+			for _, permission := range requiredPermissions {
+				userHasPermission, err := permissionChecker.CheckUserPermission(r.Context(), userId, permission)
+				if err != nil {
+					http.Error(w, "Internal server error", http.StatusInternalServerError)
+					return
+				}
+				if userHasPermission {
+					hasPermission = true
+					break
+				}
 			}
 
 			if !hasPermission {

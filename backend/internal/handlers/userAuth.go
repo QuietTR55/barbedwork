@@ -27,7 +27,7 @@ func NewUserAuthHandler(userService *services.UserService, store utilities.Sessi
 
 func (h *UserAuthHandler) RegisterRoutes(router *http.ServeMux) {
 	userAuthStack := []middleware.Middleware{
-		middleware.RateLimitMiddleware(h.limiter, time.Minute),
+		middleware.RateLimitMiddleware(h.limiter, time.Minute, "user_auth"),
 	}
 
 	router.Handle("/api/auth/user-login", middleware.Chain(

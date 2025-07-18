@@ -17,4 +17,7 @@ type WorkspaceFullData struct {
 	ImagePath sql.NullString
 	Name      string
 	Users     []User
+	Channels  []WorkspaceChannel
+	Permissions []string
+	
 }

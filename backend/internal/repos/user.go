@@ -41,7 +41,12 @@ func (r *UserRepo) CreateUser(ctx context.Context, username string, passwordHash
 
 func (r *UserRepo) GetAllUsers(ctx context.Context) ([]*models.User, error) {
 	var query string = `
-	SELECT id, username FROM users
+	SELECT DISTINCT u.id, u.username, u.image_path, 
+	       COALESCE(ARRAY_AGG(p.name) FILTER (WHERE p.name IS NOT NULL), '{}') as permissions
+	FROM users u
+	LEFT JOIN user_permissions up ON u.id = up.user_id
+	LEFT JOIN permissions p ON up.permission_id = p.id
+	GROUP BY u.id, u.username, u.image_path
 	`
 
 	rows, err := r.db.Query(ctx, query)
@@ -53,10 +58,13 @@ func (r *UserRepo) GetAllUsers(ctx context.Context) ([]*models.User, error) {
 	users := []*models.User{}
 	for rows.Next() {
 		var user models.User
-		err = rows.Scan(&user.Id, &user.Username)
+		var permissions []string
+		err = rows.Scan(&user.Id, &user.Username, &user.ImagePath, &permissions)
 		if err != nil {
 			return nil, err
 		}
+		
+		user.Permissions = permissions
 		users = append(users, &user)
 	}
 
@@ -66,14 +74,22 @@ func (r *UserRepo) GetAllUsers(ctx context.Context) ([]*models.User, error) {
 func (r *UserRepo) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
 	fmt.Println("GetUserByUsername called with username:", username)
 	var query string = `
-	SELECT id, username, password_hash FROM users WHERE username = $1
+	SELECT u.id, u.username, u.password_hash, u.image_path,
+	       COALESCE(ARRAY_AGG(p.name) FILTER (WHERE p.name IS NOT NULL), '{}') as permissions
+	FROM users u
+	LEFT JOIN user_permissions up ON u.id = up.user_id
+	LEFT JOIN permissions p ON up.permission_id = p.id
+	WHERE u.username = $1
+	GROUP BY u.id, u.username, u.password_hash, u.image_path
 	`
 
 	var id pgtype.UUID
 	var returnedUsername string
 	var passwordHash string
-	//var imagePath pgtype.Text
-	err := r.db.QueryRow(ctx, query, username).Scan(&id, &returnedUsername, &passwordHash, /*&imagePath*/)
+	var imagePath pgtype.Text
+	var permissions []string
+	
+	err := r.db.QueryRow(ctx, query, username).Scan(&id, &returnedUsername, &passwordHash, &imagePath, &permissions)
 	if err != nil {
 		return nil, err
 	}
@@ -82,30 +98,39 @@ func (r *UserRepo) GetUserByUsername(ctx context.Context, username string) (*mod
 		Id:           id,
 		Username:     returnedUsername,
 		PasswordHash: passwordHash,
-		ImagePath:    pgtype.Text{},
+		ImagePath:    imagePath,
+		Permissions:  permissions,
 	}
 
 	return user, nil
 }
 
 func (r *UserRepo) GetUserByID(ctx context.Context, userID string) (*models.User, error) {
-	var query string = `
-	SELECT id, username FROM users WHERE id = $1
+	var userQuery string = `
+	SELECT u.id, u.username, u.image_path,
+	       COALESCE(ARRAY_AGG(p.name) FILTER (WHERE p.name IS NOT NULL), '{}') as permissions
+	FROM users u
+	LEFT JOIN user_permissions up ON u.id = up.user_id
+	LEFT JOIN permissions p ON up.permission_id = p.id
+	WHERE u.id = $1
+	GROUP BY u.id, u.username, u.image_path
 	`
 
 	var id pgtype.UUID
 	var returnedUsername string
-	var passwordHash string
 	var imagePath pgtype.Text
-	err := r.db.QueryRow(ctx, query, userID).Scan(&id, &returnedUsername, &passwordHash, &imagePath)
+	var permissions []string
+	
+	err := r.db.QueryRow(ctx, userQuery, userID).Scan(&id, &returnedUsername, &imagePath, &permissions)
 	if err != nil {
 		return nil, err
 	}
 
 	user := &models.User{
-		Id:       id,
-		Username: returnedUsername,
-		ImagePath: imagePath,
+		Id:          id,
+		Username:    returnedUsername,
+		ImagePath:   imagePath,
+		Permissions: permissions,
 	}
 
 	return user, nil
@@ -113,7 +138,10 @@ func (r *UserRepo) GetUserByID(ctx context.Context, userID string) (*models.User
 
 func (r *UserRepo) GetUserPermissions(ctx context.Context, userID string, workspaceId string) ([]string, error) {
 	var query string = `
-	SELECT permission FROM user_permissions WHERE user_id = $1 AND workspace_id = $2
+	SELECT p.name 
+	FROM user_permissions up
+	JOIN permissions p ON up.permission_id = p.id
+	WHERE up.user_id = $1 AND up.workspace_id = $2
 	`
 
 	rows, err := r.db.Query(ctx, query, userID, workspaceId)
@@ -137,7 +165,10 @@ func (r *UserRepo) GetUserPermissions(ctx context.Context, userID string, worksp
 
 func (r *UserRepo) GetAllUserPermissions(ctx context.Context, userID string) ([]string, error) {
 	var query string = `
-	SELECT DISTINCT permission FROM user_permissions WHERE user_id = $1
+	SELECT DISTINCT p.name 
+	FROM user_permissions up
+	JOIN permissions p ON up.permission_id = p.id
+	WHERE up.user_id = $1
 	`
 
 	rows, err := r.db.Query(ctx, query, userID)

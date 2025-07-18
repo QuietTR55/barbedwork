@@ -29,7 +29,9 @@
 			}),
 			headers: {
 				'Content-Type': 'application/json'
-			}
+			},
+
+			credentials: 'include'
 		});
 		if (!result.ok) {
 			const errorText = await result.text();

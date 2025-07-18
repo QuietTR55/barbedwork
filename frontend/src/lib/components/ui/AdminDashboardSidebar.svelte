@@ -16,4 +16,8 @@
 		<Icon icon="ic:twotone-workspaces" />
 		<p class="hidden lg:block">Workspaces</p>
 	</a>
+	<a href="/admin-dashboard/roles-and-permissions" class="button-primary">
+		<Icon icon="ic:baseline-security" />
+		<p class="hidden lg:block">Roles & Permissions</p>
+	</a>
 </div>

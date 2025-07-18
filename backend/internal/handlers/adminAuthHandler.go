@@ -28,7 +28,7 @@ func NewAdminAuthHandler(adminPanelPasswordHash []byte, sessionStore utilities.S
 
 func (h *AdminAuthHandler) RegisterRoutes(router *http.ServeMux) {
 	authChain := []middleware.Middleware{
-		middleware.RateLimitMiddleware(h.Limiter, time.Minute),
+		middleware.RateLimitMiddleware(h.Limiter, time.Minute, "admin_auth"),
 	}
 	router.Handle("/api/auth/admin/login", middleware.Chain(
 		http.HandlerFunc(h.Login),

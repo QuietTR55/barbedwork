@@ -83,7 +83,7 @@ func TestRateLimitMiddleware(t *testing.T) {
 				RateLimitMiddleware(&fakeLimiter{
 					allowed: test.allowed,
 					err:     err,
-				}, time.Minute),
+				}, time.Minute, "test_context"),
 			}
 
 			req := httptest.NewRequest(http.MethodGet, "/", nil)

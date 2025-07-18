@@ -1,3 +1,4 @@
+import type { Channel } from './channel';
 import type { User } from './user';
 
 export interface ImagePathObject {
@@ -10,4 +11,6 @@ export type Workspace = {
 	ImagePath: ImagePathObject;
 	Name: string;
 	Users: User[];
+	Channels: Channel[];
+	Permissions: string[];
 };

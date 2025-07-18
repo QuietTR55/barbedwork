@@ -9,7 +9,7 @@ import (
 
 func SetupRoutes(mux *http.ServeMux, container *di.Container) {
 	healthCheckStack := []middleware.Middleware{
-		middleware.RateLimitMiddleware(container.DefaultLimiter, time.Minute),
+		middleware.RateLimitMiddleware(container.DefaultLimiter, time.Minute, "health_check"),
 	}
 	mux.Handle("/api/health", middleware.Chain(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -25,4 +25,5 @@ func SetupRoutes(mux *http.ServeMux, container *di.Container) {
 	container.UserHandler.RegisterRoutes(mux)
 	container.UserAuthHandler.RegisterRoutes(mux)
 	container.WorkspaceHandler.RegisterRoutes(mux)
+	container.RoleHandler.RegisterRoutes(mux)
 }

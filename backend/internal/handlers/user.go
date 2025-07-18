@@ -24,7 +24,7 @@ func (h *UserHandler) RegisterRoutes(router *http.ServeMux) {
 
 	userStack := []middleware.Middleware{
 		middleware.TokenAuthMiddleware(h.store),
-		middleware.RateLimitMiddleware(h.limiter, time.Minute),
+		middleware.RateLimitMiddleware(h.limiter, time.Minute, "user_profile"),
 	}
 
 	router.Handle("/user", middleware.Chain(
@@ -50,3 +50,5 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
+func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
+}

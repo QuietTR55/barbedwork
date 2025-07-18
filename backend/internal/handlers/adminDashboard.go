@@ -32,7 +32,7 @@ func NewAdminDashboardHandler(SessionStore utilities.SessionStore, Limiter ratel
 
 func (h *AdminDashboardHandler) RegisterRoutes(router *http.ServeMux) {
 	adminStack := []middleware.Middleware{
-		middleware.RateLimitMiddleware(h.Limiter, time.Minute),
+		middleware.RateLimitMiddleware(h.Limiter, time.Minute, "admin_dashboard"),
 		middleware.TokenAuthMiddleware(h.SessionStore),
 	}
 	router.Handle("/api/admin/dashboard", middleware.Chain(
